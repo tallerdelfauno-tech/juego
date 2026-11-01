@@ -67,8 +67,10 @@
 
 <script>
 // Juego propio del Taller (por ejemplo, hecho con GB Studio). Si existe, el llavero lo abre directo.
-const JUEGO_PROPIO = 'juego.gb';
-const NOMBRE_JUEGO = 'Taller del Fauno';
+// Cada sticker puede abrir un juego distinto: ...github.io/juego/?j=nombre carga juegos/nombre.gb
+const pedido = (new URLSearchParams(location.search).get('j') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+const JUEGO_PROPIO = pedido ? 'juegos/' + pedido + '.gb' : 'juego.gb';
+const NOMBRE_JUEGO = pedido || 'Taller del Fauno';
 
 const $ = id => document.getElementById(id);
 
