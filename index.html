@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Taller del Fauno · Juego</title>
+<meta name="description" content="Acerca tu llavero cartucho del Taller del Fauno y juega.">
+<meta name="theme-color" content="#1b2a1b">
+<style>
+  :root{
+    --bg:#121a12; --panel:#1b2a1b; --pantalla:#9bbc0f; --pantalla-osc:#306230;
+    --texto:#e8f0d8; --suave:#a9b89a; --acento:#8bac0f; --borde:#2f4a2f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--texto);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:flex;flex-direction:column;align-items:center;min-height:100dvh;padding:16px}
+  header{display:flex;align-items:center;gap:12px;margin:8px 0 16px}
+  header img{width:52px;height:52px;border-radius:12px;background:#000}
+  header h1{font-size:1.15rem;margin:0;line-height:1.2}
+  header p{margin:2px 0 0;color:var(--suave);font-size:.85rem}
+  .cartucho{width:100%;max-width:520px;background:var(--panel);border:2px solid var(--borde);border-radius:18px 18px 40px 18px;padding:16px}
+  #inicio{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:28px 12px;
+          background:var(--pantalla);color:var(--pantalla-osc);border-radius:8px;font-weight:700}
+  #inicio .grande{font-size:1.4rem;letter-spacing:.04em}
+  #inicio .chico{font-weight:500;font-size:.9rem;max-width:30ch}
+  button,.archivo{appearance:none;border:0;border-radius:999px;padding:12px 22px;font:inherit;font-weight:700;cursor:pointer}
+  button{background:var(--pantalla-osc);color:var(--pantalla)}
+  .archivo{background:transparent;color:var(--pantalla-osc);border:2px solid var(--pantalla-osc);display:inline-block}
+  .archivo input{display:none}
+  #marco{display:none;width:100%;aspect-ratio:10/9;border-radius:8px;overflow:hidden;background:#000}
+  #juego{width:100%;height:100%}
+  /* modo pantalla completa (también sirve de respaldo donde el navegador no la permite, como en iPhone) */
+  #marco.lleno{position:fixed;inset:0;z-index:10;width:100vw;height:100dvh;aspect-ratio:auto;border-radius:0}
+  body.jugando{overflow:hidden}
+  #estado{min-height:1.2em;font-size:.85rem;color:var(--pantalla-osc)}
+  footer{margin-top:auto;padding-top:20px;color:var(--suave);font-size:.75rem;text-align:center;max-width:520px}
+  footer a{color:var(--acento)}
+</style>
+</head>
+<body>
+<header>
+  <img src="logo.webp" alt="Logo Taller del Fauno">
+  <div>
+    <h1>Taller del Fauno · Impresiones 3D</h1>
+    <p>Rancagua, Chile · @eltallerdelfauno3d</p>
+  </div>
+</header>
+
+<main class="cartucho">
+  <div id="inicio">
+    <div class="grande">▶ PRESIONA JUGAR</div>
+    <div class="chico" id="mensaje">Tu llavero cartucho está listo.</div>
+    <button id="btnJugar" hidden>Jugar</button>
+    <label class="archivo" id="btnArchivo" hidden>Cargar mi juego (.gb / .gbc)
+      <input type="file" id="archivo" accept=".gb,.gbc,.zip">
+    </label>
+    <div id="estado"></div>
+  </div>
+  <div id="marco"><div id="juego"></div></div>
+</main>
+
+<footer>
+  Emulador: <a href="https://emulatorjs.org" target="_blank" rel="noopener">EmulatorJS</a> (licencia GPL-3.0).
+  Este sitio no incluye ni distribuye juegos comerciales de terceros.
+</footer>
+
+<script>
+// Juego propio del Taller (por ejemplo, hecho con GB Studio). Si existe, el llavero lo abre directo.
+const JUEGO_PROPIO = 'juego.gb';
+const NOMBRE_JUEGO = 'Taller del Fauno';
+
+const $ = id => document.getElementById(id);
+
+function arrancar(url, nombre){
+  $('inicio').style.display = 'none';
+  const marco = $('marco');
+  marco.style.display = 'block';
+  marco.classList.add('lleno');
+  document.body.classList.add('jugando');
+  // pantalla completa real: solo se puede pedir dentro del toque en el botón
+  const pedir = marco.requestFullscreen || marco.webkitRequestFullscreen;
+  if (pedir) { try { const p = pedir.call(marco, {navigationUI:'hide'}); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+  if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(() => {});
+  window.EJS_player = '#juego';
+  window.EJS_core = 'gb';
+  window.EJS_gameUrl = url;
+  window.EJS_gameName = nombre;
+  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_language = 'es-ES';
+  window.EJS_color = '#8bac0f';
+  window.EJS_startOnLoaded = true;
+  const s = document.createElement('script');
+  s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+  s.onerror = () => { $('inicio').style.display = 'flex'; $('marco').style.display = 'none';
+                      $('estado').textContent = 'No se pudo cargar el emulador. Revisa tu conexión.'; };
+  document.body.appendChild(s);
+}
+
+// ¿Hay juego propio publicado junto a la página?
+fetch(JUEGO_PROPIO, {method:'HEAD', cache:'no-store'})
+  .then(r => r.ok)
+  .catch(() => false)
+  .then(hay => {
+    if (hay) {
+      $('mensaje').textContent = 'Tu llavero cartucho está listo.';
+      $('btnJugar').hidden = false;
+    } else {
+      $('mensaje').textContent = 'Carga tu propio archivo de juego para empezar.';
+    }
+    $('btnArchivo').hidden = false;
+  });
+
+$('btnJugar').addEventListener('click', () => arrancar(JUEGO_PROPIO, NOMBRE_JUEGO));
+$('archivo').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  arrancar(URL.createObjectURL(f), f.name.replace(/\.(gbc?|zip)$/i, ''));
+});
+</script>
+</body>
+</html>
