@@ -2,16 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Taller del Fauno · Juego</title>
 <meta name="description" content="Acerca tu llavero cartucho del Taller del Fauno y juega.">
 <meta name="theme-color" content="#1b2a1b">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   :root{
     --bg:#121a12; --panel:#1b2a1b; --pantalla:#9bbc0f; --pantalla-osc:#306230;
-    --texto:#e8f0d8; --suave:#a9b89a; --acento:#8bac0f; --borde:#2f4a2f;
+    --texto:#e8f0d8; --suave:#a9b89a; --acento:#8bac0f; --borde:#2f4a2f; --boton:#2b3d2b;
   }
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%}
   body{background:var(--bg);color:var(--texto);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
        display:flex;flex-direction:column;align-items:center;min-height:100dvh;padding:16px}
@@ -24,18 +25,35 @@
           background:var(--pantalla);color:var(--pantalla-osc);border-radius:8px;font-weight:700}
   #inicio .grande{font-size:1.4rem;letter-spacing:.04em}
   #inicio .chico{font-weight:500;font-size:.9rem;max-width:30ch}
-  button,.archivo{appearance:none;border:0;border-radius:999px;padding:12px 22px;font:inherit;font-weight:700;cursor:pointer}
-  button{background:var(--pantalla-osc);color:var(--pantalla)}
+  .btn,.archivo{appearance:none;border:0;border-radius:999px;padding:12px 22px;font:inherit;font-weight:700;cursor:pointer}
+  .btn{background:var(--pantalla-osc);color:var(--pantalla)}
   .archivo{background:transparent;color:var(--pantalla-osc);border:2px solid var(--pantalla-osc);display:inline-block}
   .archivo input{display:none}
-  #marco{display:none;width:100%;aspect-ratio:10/9;border-radius:8px;overflow:hidden;background:#000}
-  #juego{width:100%;height:100%}
-  /* modo pantalla completa (también sirve de respaldo donde el navegador no la permite, como en iPhone) */
-  #marco.lleno{position:fixed;inset:0;z-index:10;width:100vw;height:100dvh;aspect-ratio:auto;border-radius:0}
-  body.jugando{overflow:hidden}
   #estado{min-height:1.2em;font-size:.85rem;color:var(--pantalla-osc)}
   footer{margin-top:auto;padding-top:20px;color:var(--suave);font-size:.75rem;text-align:center;max-width:520px}
   footer a{color:var(--acento)}
+
+  /* consola en pantalla completa */
+  #consola{display:none;position:fixed;inset:0;z-index:10;background:var(--panel);
+           flex-direction:column;align-items:center;justify-content:space-between;
+           padding:max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));
+           user-select:none;-webkit-user-select:none;touch-action:none}
+  body.jugando{overflow:hidden}
+  body.jugando #consola{display:flex}
+  #pantalla{width:min(100%, calc((100dvh - 300px) * 160 / 144));aspect-ratio:160/144;background:#000;border-radius:6px;
+            border:10px solid #0d140d;box-shadow:0 0 0 2px var(--borde)}
+  #pantalla canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+  #controles{width:100%;max-width:420px;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:8px;padding:8px 4px}
+  .cruz{position:relative;width:150px;height:150px;justify-self:start}
+  .cruz button{position:absolute;width:50px;height:50px;background:var(--boton);border:0;border-radius:8px;color:var(--suave);font-size:1.1rem}
+  .cruz .UP{left:50px;top:0}.cruz .DOWN{left:50px;bottom:0}.cruz .LEFT{left:0;top:50px}.cruz .RIGHT{right:0;top:50px}
+  .ab{position:relative;width:150px;height:120px;justify-self:end}
+  .ab button{position:absolute;width:62px;height:62px;border-radius:50%;border:0;background:#6b1f3a;color:#f3d6e0;font-weight:800;font-size:1.1rem}
+  .ab .A{right:0;top:8px}.ab .B{left:0;top:44px}
+  .menu{grid-column:1/3;display:flex;justify-content:center;gap:22px}
+  .menu button{border:0;border-radius:999px;background:var(--boton);color:var(--suave);font-size:.75rem;font-weight:700;padding:8px 16px;letter-spacing:.05em}
+  #consola button.on{filter:brightness(1.6)}
+  #salir{position:absolute;top:max(8px,env(safe-area-inset-top));right:10px;border:0;background:transparent;color:var(--suave);font-size:1.4rem}
 </style>
 </head>
 <body>
@@ -51,74 +69,100 @@
   <div id="inicio">
     <div class="grande">▶ PRESIONA JUGAR</div>
     <div class="chico" id="mensaje">Tu llavero cartucho está listo.</div>
-    <button id="btnJugar" hidden>Jugar</button>
+    <button class="btn" id="btnJugar" hidden>Jugar</button>
     <label class="archivo" id="btnArchivo" hidden>Cargar mi juego (.gb / .gbc)
-      <input type="file" id="archivo" accept=".gb,.gbc,.zip">
+      <input type="file" id="archivo" accept=".gb,.gbc">
     </label>
     <div id="estado"></div>
   </div>
-  <div id="marco"><div id="juego"></div></div>
 </main>
 
+<div id="consola">
+  <button id="salir" aria-label="Salir">✕</button>
+  <div id="pantalla"><canvas id="lienzo" width="160" height="144"></canvas></div>
+  <div id="controles">
+    <div class="cruz">
+      <button class="UP" data-b="UP">▲</button><button class="LEFT" data-b="LEFT">◀</button>
+      <button class="RIGHT" data-b="RIGHT">▶</button><button class="DOWN" data-b="DOWN">▼</button>
+    </div>
+    <div class="ab"><button class="B" data-b="B">B</button><button class="A" data-b="A">A</button></div>
+    <div class="menu"><button data-b="SELECT">SELECT</button><button data-b="START">START</button></div>
+  </div>
+</div>
+
 <footer>
-  Emulador: <a href="https://emulatorjs.org" target="_blank" rel="noopener">EmulatorJS</a> (licencia GPL-3.0).
+  Emulador: <a href="https://github.com/torch2424/wasmboy" target="_blank" rel="noopener">WasmBoy</a> (licencia GPL-3.0).
   Este sitio no incluye ni distribuye juegos comerciales de terceros.
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/wasmboy@0.7.1/dist/wasmboy.wasm.iife.js"></script>
 <script>
 // Juego propio del Taller (por ejemplo, hecho con GB Studio). Si existe, el llavero lo abre directo.
 // Cada sticker puede abrir un juego distinto: ...github.io/juego/?j=nombre carga juegos/nombre.gb
 const pedido = (new URLSearchParams(location.search).get('j') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
 const JUEGO_PROPIO = pedido ? 'juegos/' + pedido + '.gb' : 'juego.gb';
-const NOMBRE_JUEGO = pedido || 'Taller del Fauno';
 
 const $ = id => document.getElementById(id);
+const GB = window.WasmBoy && (window.WasmBoy.WasmBoy || window.WasmBoy);
 
-function arrancar(url, nombre){
-  $('inicio').style.display = 'none';
-  const marco = $('marco');
-  marco.style.display = 'block';
-  marco.classList.add('lleno');
-  document.body.classList.add('jugando');
-  // pantalla completa real: solo se puede pedir dentro del toque en el botón
-  const pedir = marco.requestFullscreen || marco.webkitRequestFullscreen;
-  if (pedir) { try { const p = pedir.call(marco, {navigationUI:'hide'}); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-  if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(() => {});
-  window.EJS_player = '#juego';
-  window.EJS_core = 'gb';
-  window.EJS_gameUrl = url;
-  window.EJS_gameName = nombre;
-  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-  window.EJS_language = 'es-ES';
-  window.EJS_color = '#8bac0f';
-  window.EJS_startOnLoaded = true;
-  const s = document.createElement('script');
-  s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-  s.onerror = () => { $('inicio').style.display = 'flex'; $('marco').style.display = 'none';
-                      $('estado').textContent = 'No se pudo cargar el emulador. Revisa tu conexión.'; };
-  document.body.appendChild(s);
+// estado de los botones; lo mandamos al emulador en cada cuadro
+const botones = {UP:false, RIGHT:false, DOWN:false, LEFT:false, A:false, B:false, SELECT:false, START:false};
+function bucleControles(){ if (GB && GB.isPlaying()) GB.setJoypadState(botones); requestAnimationFrame(bucleControles); }
+
+// botones táctiles (permite deslizar el dedo de un botón a otro)
+const activos = new Map();
+function revisarToques(e){
+  e.preventDefault();
+  for (const k in botones) if (k !== '_') botones[k] = false;
+  for (const t of e.touches) { const el = document.elementFromPoint(t.clientX, t.clientY); const b = el && el.dataset && el.dataset.b; if (b) botones[b] = true; }
+  document.querySelectorAll('#controles button').forEach(b => b.classList.toggle('on', botones[b.dataset.b]));
 }
+['touchstart','touchmove','touchend','touchcancel'].forEach(ev => $('controles').addEventListener(ev, revisarToques, {passive:false}));
+// mouse (para probar en el computador)
+$('controles').addEventListener('mousedown', e => { const b = e.target.dataset.b; if (b) { botones[b] = true; e.target.classList.add('on'); } });
+addEventListener('mouseup', () => { for (const k in botones) botones[k] = false; document.querySelectorAll('#controles button').forEach(b => b.classList.remove('on')); });
+// teclado: flechas, Z = B, X = A, Enter = Start, Shift = Select
+const teclas = {ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT', z:'B', x:'A', Enter:'START', Shift:'SELECT'};
+addEventListener('keydown', e => { const b = teclas[e.key] || teclas[e.key.toLowerCase()]; if (b) { botones[b] = true; e.preventDefault(); } });
+addEventListener('keyup',   e => { const b = teclas[e.key] || teclas[e.key.toLowerCase()]; if (b) botones[b] = false; });
+
+async function arrancar(rom){
+  if (!GB) { $('estado').textContent = 'No se pudo cargar el emulador. Revisa tu conexión.'; return; }
+  document.body.classList.add('jugando');
+  // pantalla completa real donde el navegador lo permite (Android); en iPhone la consola igual llena la pantalla
+  const c = $('consola'), pedir = c.requestFullscreen || c.webkitRequestFullscreen;
+  if (pedir) { try { const p = pedir.call(c, {navigationUI:'hide'}); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+  try {
+    await GB.config({headless:false, isAudioEnabled:true, frameSkip:0, gameboyFrameRate:60, isGbcEnabled:true}, $('lienzo'));
+    GB.disableDefaultJoypad();
+    await GB.loadROM(rom);
+    await GB.play();
+    GB.resumeAudioContext && GB.resumeAudioContext();
+    requestAnimationFrame(bucleControles);
+  } catch (e) {
+    salir();
+    $('estado').textContent = 'No se pudo abrir el juego.';
+  }
+}
+function salir(){
+  if (GB && GB.isPlaying()) GB.pause();
+  document.body.classList.remove('jugando');
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+}
+$('salir').addEventListener('click', salir);
 
 // ¿Hay juego propio publicado junto a la página?
 fetch(JUEGO_PROPIO, {method:'HEAD', cache:'no-store'})
   .then(r => r.ok)
   .catch(() => false)
   .then(hay => {
-    if (hay) {
-      $('mensaje').textContent = 'Tu llavero cartucho está listo.';
-      $('btnJugar').hidden = false;
-    } else {
-      $('mensaje').textContent = 'Carga tu propio archivo de juego para empezar.';
-    }
+    $('mensaje').textContent = hay ? 'Tu llavero cartucho está listo.' : 'Carga tu propio archivo de juego para empezar.';
+    $('btnJugar').hidden = !hay;
     $('btnArchivo').hidden = false;
   });
 
-$('btnJugar').addEventListener('click', () => arrancar(JUEGO_PROPIO, NOMBRE_JUEGO));
-$('archivo').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  arrancar(URL.createObjectURL(f), f.name.replace(/\.(gbc?|zip)$/i, ''));
-});
+$('btnJugar').addEventListener('click', () => arrancar(JUEGO_PROPIO));
+$('archivo').addEventListener('change', e => { const f = e.target.files[0]; if (f) arrancar(f); });
 </script>
 </body>
 </html>
