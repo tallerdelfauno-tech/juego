@@ -129,6 +129,8 @@ function bucleControles(){ if (GB && GB.isPlaying()) GB.setJoypadState(botones);
 const activos = new Map();
 function revisarToques(e){
   e.preventDefault();
+  // iPhone puede dejar el sonido suspendido al volver a la página hasta el siguiente toque
+  if (e.type === 'touchstart' && juegoListo && GB.resumeAudioContext) GB.resumeAudioContext();
   for (const k in botones) if (k !== '_') botones[k] = false;
   for (const t of e.touches) { const el = document.elementFromPoint(t.clientX, t.clientY); const b = el && el.dataset && el.dataset.b; if (b) botones[b] = true; }
   document.querySelectorAll('#controles button').forEach(b => b.classList.toggle('on', botones[b.dataset.b]));
@@ -154,6 +156,7 @@ async function arrancar(rom){
     await GB.loadROM(rom);
     await GB.play();
     GB.resumeAudioContext && GB.resumeAudioContext();
+    juegoListo = true;
     requestAnimationFrame(bucleControles);
   } catch (e) {
     salir();
@@ -161,11 +164,26 @@ async function arrancar(rom){
   }
 }
 function salir(){
+  juegoListo = false;
   if (GB && GB.isPlaying()) GB.pause();
   document.body.classList.remove('jugando');
   if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
 }
 $('salir').addEventListener('click', salir);
+
+// WasmBoy pausa el juego cuando la página queda oculta (cambiar de app, bloquear la pantalla) y no lo reanuda solo.
+let juegoListo = false;
+function reanudar(){
+  if (document.visibilityState !== 'visible' || !juegoListo || GB.isPlaying()) return;
+  for (const k in botones) botones[k] = false; // un dedo levantado mientras estaba oculta no debe dejar un botón pegado
+  GB.play().then(() => { GB.resumeAudioContext && GB.resumeAudioContext(); }).catch(() => {});
+}
+function alVolver(){
+  reanudar();
+  setTimeout(reanudar, 500); // por si la pausa todavía no terminaba al volver
+}
+document.addEventListener('visibilitychange', alVolver);
+addEventListener('pageshow', alVolver);
 
 // Game Boy Advance: EmulatorJS se carga solo cuando hace falta. Muestra su propio botón de inicio,
 // porque iPhone exige un toque justo antes de activar el sonido.
