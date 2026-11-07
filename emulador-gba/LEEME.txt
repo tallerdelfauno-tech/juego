@@ -1,0 +1,4 @@
+EmulatorJS 4.2.3 (GPL-3.0), sin modificar: https://github.com/EmulatorJS/EmulatorJS
+Nucleo mGBA 4.2.3 de EmulatorJS (mGBA, MPL-2.0): https://github.com/EmulatorJS/mgba
+Copiado desde los paquetes npm @emulatorjs/emulatorjs y @emulatorjs/core-mgba.
+Los archivos de src/ se unieron sin cambios en emulator.min.js, y emulator.css se renombro a emulator.min.css, porque el paquete npm no trae version minificada y asi se evita el modo de depuracion.

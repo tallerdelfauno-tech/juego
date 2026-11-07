@@ -54,6 +54,15 @@
   .menu button{border:0;border-radius:999px;background:var(--boton);color:var(--suave);font-size:.75rem;font-weight:700;padding:8px 16px;letter-spacing:.05em}
   #consola button.on{filter:brightness(1.6)}
   #salir{position:absolute;top:max(8px,env(safe-area-inset-top));right:10px;border:0;background:transparent;color:var(--suave);font-size:1.4rem}
+
+  /* Game Boy Advance: EmulatorJS dibuja su propia pantalla y controles */
+  #consolaGba{display:none;position:fixed;inset:0;z-index:10;background:#000;
+              padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  body.jugandoGba{overflow:hidden}
+  body.jugandoGba #consolaGba{display:block}
+  #contenedorGba{width:100%;height:100%}
+  #salirGba{position:absolute;top:max(8px,env(safe-area-inset-top));left:10px;z-index:20;border:0;background:rgba(0,0,0,.5);
+            border-radius:50%;width:38px;height:38px;color:#fff;font-size:1.1rem}
 </style>
 </head>
 <body>
@@ -70,8 +79,8 @@
     <div class="grande">▶ PRESIONA JUGAR</div>
     <div class="chico" id="mensaje">Tu llavero cartucho está listo.</div>
     <button class="btn" id="btnJugar" hidden>Jugar</button>
-    <label class="archivo" id="btnArchivo" hidden>Cargar mi juego (.gb / .gbc)
-      <input type="file" id="archivo" accept=".gb,.gbc">
+    <label class="archivo" id="btnArchivo" hidden>Cargar mi juego (.gb / .gbc / .gba)
+      <input type="file" id="archivo" accept=".gb,.gbc,.gba">
     </label>
     <div id="estado"></div>
   </div>
@@ -90,17 +99,24 @@
   </div>
 </div>
 
+<div id="consolaGba">
+  <button id="salirGba" aria-label="Salir">✕</button>
+  <div id="contenedorGba"></div>
+</div>
+
 <footer>
-  Emulador: <a href="https://github.com/torch2424/wasmboy" target="_blank" rel="noopener">WasmBoy</a> (licencia GPL-3.0).
+  Emuladores: <a href="https://github.com/torch2424/wasmboy" target="_blank" rel="noopener">WasmBoy</a> (GPL-3.0) para Game Boy y
+  <a href="https://github.com/EmulatorJS/EmulatorJS" target="_blank" rel="noopener">EmulatorJS</a> (GPL-3.0) con
+  <a href="https://github.com/EmulatorJS/mgba" target="_blank" rel="noopener">mGBA</a> (MPL-2.0) para Game Boy Advance.
   Este sitio no incluye ni distribuye juegos comerciales de terceros.
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/wasmboy@0.7.1/dist/wasmboy.wasm.iife.js"></script>
 <script>
 // Juego propio del Taller (por ejemplo, hecho con GB Studio). Si existe, el llavero lo abre directo.
-// Cada sticker puede abrir un juego distinto: ...github.io/juego/?j=nombre carga juegos/nombre.gb
+// Cada sticker puede abrir un juego distinto: ...github.io/juego/?j=nombre carga juegos/nombre.gb o juegos/nombre.gba
 const pedido = (new URLSearchParams(location.search).get('j') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
-const JUEGO_PROPIO = pedido ? 'juegos/' + pedido + '.gb' : 'juego.gb';
+const BASE_JUEGO = pedido ? 'juegos/' + pedido : 'juego';
 
 const $ = id => document.getElementById(id);
 const GB = window.WasmBoy && (window.WasmBoy.WasmBoy || window.WasmBoy);
@@ -151,18 +167,47 @@ function salir(){
 }
 $('salir').addEventListener('click', salir);
 
-// ¿Hay juego propio publicado junto a la página?
-fetch(JUEGO_PROPIO, {method:'HEAD', cache:'no-store'})
-  .then(r => r.ok)
-  .catch(() => false)
-  .then(hay => {
-    $('mensaje').textContent = hay ? 'Tu llavero cartucho está listo.' : 'Carga tu propio archivo de juego para empezar.';
-    $('btnJugar').hidden = !hay;
-    $('btnArchivo').hidden = false;
+// Game Boy Advance: EmulatorJS se carga solo cuando hace falta. Muestra su propio botón de inicio,
+// porque iPhone exige un toque justo antes de activar el sonido.
+function arrancarGba(rom){
+  document.body.classList.add('jugandoGba');
+  Object.assign(window, {
+    EJS_player: '#contenedorGba',
+    EJS_core: 'gba',
+    EJS_gameUrl: rom,
+    EJS_gameName: rom instanceof File ? rom.name : BASE_JUEGO.split('/').pop(),
+    EJS_pathtodata: 'emulador-gba/',
+    EJS_language: 'es-ES',
+    EJS_startButtonName: 'Empezar',
+    EJS_color: '#8bac0f',
+    EJS_backgroundColor: '#000000',
+    EJS_onGameStart: () => { if ('ontouchstart' in window) setTimeout(() => window.EJS_emulator.toggleVirtualGamepad(true), 300); }, // controles táctiles siempre visibles en teléfonos
+    EJS_Buttons: {netplay:false, cheat:false, screenRecord:false, saveState:false, loadState:false, cacheManager:false, exitEmulation:false}
   });
+  const s = document.createElement('script');
+  s.src = 'emulador-gba/loader.js';
+  s.onerror = () => { document.body.classList.remove('jugandoGba'); $('estado').textContent = 'No se pudo cargar el emulador. Revisa tu conexión.'; };
+  document.body.appendChild(s);
+}
+// EmulatorJS no se puede detener y volver a abrir en la misma página: al salir, recargamos.
+$('salirGba').addEventListener('click', () => location.reload());
 
-$('btnJugar').addEventListener('click', () => arrancar(JUEGO_PROPIO));
-$('archivo').addEventListener('change', e => { const f = e.target.files[0]; if (f) arrancar(f); });
+const existe = url => fetch(url, {method:'HEAD', cache:'no-store'}).then(r => r.ok).catch(() => false);
+let juegoPublicado = null;
+
+// ¿Hay juego propio publicado junto a la página? Primero .gb, después .gba.
+(async () => {
+  for (const ext of ['.gb', '.gba']) if (await existe(BASE_JUEGO + ext)) { juegoPublicado = BASE_JUEGO + ext; break; }
+  $('mensaje').textContent = juegoPublicado ? 'Tu llavero cartucho está listo.' : 'Carga tu propio archivo de juego para empezar.';
+  $('btnJugar').hidden = !juegoPublicado;
+  $('btnArchivo').hidden = false;
+})();
+
+$('btnJugar').addEventListener('click', () => juegoPublicado.endsWith('.gba') ? arrancarGba(juegoPublicado) : arrancar(juegoPublicado));
+$('archivo').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) /\.gba$/i.test(f.name) ? arrancarGba(f) : arrancar(f);
+});
 </script>
 </body>
 </html>
